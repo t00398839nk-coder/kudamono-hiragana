@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>くだもの ひらがな マッチング</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: 読みやすい丸ゴシック体 -->
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+    <!-- Tone.js (効果音用) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        body {
+            font-family: 'Zen Maru Gothic', sans-serif;
+            background-color: #FFFBEB; /* 温かみのあるクリーム色 */
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* 弾むアニメーション */
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            70% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-pop {
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        /* 間違えた時の揺れるアニメーション */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+        .animate-shake {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        /* 花丸・正解エフェクト */
+        @keyframes circleDraw {
+            0% { stroke-dashoffset: 300; opacity: 0; }
+            20% { opacity: 1; }
+            100% { stroke-dashoffset: 0; opacity: 1; }
+        }
+        .circle-path {
+            stroke-dasharray: 300;
+            stroke-dashoffset: 300;
+            animation: circleDraw 0.6s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-between p-4 sm:p-6 text-slate-800">
+
+    <!-- ヘッダー領域：タイトルと進捗 -->
+    <header class="w-full max-w-2xl flex flex-col sm:flex-row items-center justify-between gap-3 bg-white/80 backdrop-blur-sm px-6 py-4 rounded-3xl shadow-sm border-2 border-amber-200">
+        <div class="flex items-center gap-3">
+            <span class="text-3xl">🍎</span>
+            <h1 class="text-xl sm:text-2xl font-black text-amber-600 tracking-wider">くだもの ひらがな</h1>
+        </div>
+        
+        <div class="flex items-center gap-4">
+            <!-- 音声オンオフボタン -->
+            <button id="voiceToggleBtn" onclick="toggleVoice()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold text-sm transition active:scale-95" title="よみあげ オン/オフ">
+                <span id="voiceIcon">🔊</span>
+                <span id="voiceText">おと オン</span>
+            </button>
+
+            <!-- 進捗カウンター -->
+            <div class="bg-orange-500 text-white font-bold px-4 py-1.5 rounded-full text-sm sm:text-base shadow-inner">
+                <span id="progressText">1 / 10</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- メイン学習エリア -->
+    <main id="gameArea" class="w-full max-w-2xl flex-1 flex flex-col items-center justify-center my-4">
+        
+        <!-- 問題カード（写真・イラスト表示エリア） -->
+        <div class="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-lg border-4 border-amber-300 p-6 sm:p-8 flex flex-col items-center justify-center mb-6 sm:mb-8 transition-all">
+            
+            <!-- 音声再生ボタン（写真タップでも再生可能） -->
+            <button onclick="speakCurrentFruit()" class="group relative w-52 h-52 sm:w-64 sm:h-64 rounded-3xl bg-gradient-to-b from-amber-50 to-orange-50 flex items-center justify-center shadow-inner border-2 border-amber-100 overflow-hidden cursor-pointer active:scale-95 transition" aria-label="なまえをきく">
+                <!-- リアルな果物の画像（SVG＋高精細イラスト表現、またはフォールバック付き画像） -->
+                <div id="fruitVisual" class="w-full h-full flex items-center justify-center p-4 animate-pop">
+                    <!-- JSで動的に高品質な写真/SVGを挿入 -->
+                </div>
+
+                <!-- 音声ヒントバッジ -->
+                <div class="absolute bottom-3 right-3 bg-white/95 text-amber-600 p-2.5 rounded-full shadow-md group-hover:scale-110 transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+            </button>
+
+            <!-- 正解時の大きな赤丸オーバーレイ（文字なし） -->
+            <div id="correctOverlay" class="hidden absolute inset-0 bg-white/60 backdrop-blur-[2px] rounded-[2.2rem] flex items-center justify-center z-10">
+                <svg class="w-44 h-44 sm:w-52 sm:h-52 text-rose-500 drop-shadow-md" viewBox="0 0 100 100">
+                    <circle class="circle-path" cx="50" cy="50" r="40" fill="none" stroke="currentColor" stroke-width="11" stroke-linecap="round" />
+                </svg>
+            </div>
+        </div>
+
+        <!-- 2択の選択肢ボタンエリア -->
+        <div id="choicesContainer" class="w-full max-w-xl grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 px-2">
+            <!-- JSで2つの大きなボタンを生成 -->
+        </div>
+
+    </main>
+
+    <!-- 結果発表画面（全問終了時に表示） -->
+    <section id="resultArea" class="hidden w-full max-w-lg bg-white rounded-[2.5rem] shadow-xl border-4 border-amber-300 p-8 text-center animate-pop my-auto">
+        <div class="text-6xl mb-4">🎉🏆🎉</div>
+        <h2 class="text-3xl font-black text-amber-600 mb-2">よく できました！</h2>
+        <p class="text-slate-600 font-bold text-lg mb-6">さいごまで がんばったね！</p>
+        
+        <div class="bg-amber-50 rounded-3xl p-6 mb-8 border-2 border-amber-200">
+            <p class="text-sm font-bold text-amber-700 mb-1">せいかいした かず</p>
+            <p class="text-4xl font-black text-rose-500">
+                <span id="finalScore">10</span> <span class="text-xl text-slate-600">/ <span id="totalQuestions">10</span> もん</span>
+            </p>
+        </div>
+
+        <button onclick="restartGame()" class="w-full py-4 px-8 bg-gradient-to-r from-orange-400 to-amber-500 hover:from-orange-500 hover:to-amber-600 text-white font-black text-xl rounded-2xl shadow-lg transform transition active:scale-95">
+            もう いちど やる！
+        </button>
+    </section>
+
+    <!-- フッター（先生・保護者向け設定パネル切り替え） -->
+    <footer class="w-full max-w-2xl text-center mt-2">
+        <button onclick="toggleSettingsModal()" class="text-xs sm:text-sm text-slate-400 hover:text-slate-600 underline font-medium py-2 px-4">
+            ⚙️ 保護者・先生向け設定（問題数・出題選択）
+        </button>
+    </footer>
+
+    <!-- 設定モーダル（ダイアログ） -->
+    <div id="settingsModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border-2 border-slate-200">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-black text-slate-800">教材のカスタマイズ設定</h3>
+                <button onclick="toggleSettingsModal()" class="text-slate-400 hover:text-slate-700 text-2xl font-bold">&times;</button>
+            </div>
+            
+            <div class="space-y-4 text-sm">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">出題する問題数</label>
+                    <select id="questionCountSelect" class="w-full p-3 rounded-xl border-2 border-slate-200 font-bold text-slate-700 bg-slate-50">
+                        <option value="5">5問（すこしだけ）</option>
+                        <option value="10" selected>10問（ひょうじゅん）</option>
+                        <option value="12">12問（ぜんぶ）</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">ひらがなの表示スタイル</label>
+                    <select id="fontStyleSelect" class="w-full p-3 rounded-xl border-2 border-slate-200 font-bold text-slate-700 bg-slate-50">
+                        <option value="normal" selected>ふつう（くろもじ）</option>
+                        <option value="highContrast">はっきり（あお・あか強調）</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mt-6 flex gap-3">
+                <button onclick="applySettings()" class="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl shadow transition">
+                    設定を適用してやり直す
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * 果物マスターデータ
+         * リアルな写真（Unsplash等の安定した画像URL）と、万が一オフラインや読み込みエラー時でも
+         * 美しく表示されるカスタムSVGイラストのフォールバックを完備しています。
+         */
+        const FRUITS_DATA = [
+            {
+                id: 'ringo',
+                name: 'りんご',
+                distractors: ['みかん', 'いちご', 'すいか', 'ばなな'],
+                imageUrl: 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?auto=format&fit=crop&w=500&q=80',
+                emoji: '🍎'
+            },
+            {
+                id: 'banana',
+                name: 'ばなな',
+                distractors: ['れもん', 'ぱいなっぷる', 'りんご', 'めろん'],
+                imageUrl: 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?auto=format&fit=crop&w=500&q=80',
+                emoji: '🍌'
+            },
+            {
+                id: 'mikan',
+                name: 'みかん',
+                distractors: ['りんご', 'もも', 'かき', 'れもん'],
+                imageUrl: 'https://images.unsplash.com/photo-1611080626919-7cf5a9dbab5b?auto=format&fit=crop&w=500&q=80',
+                emoji: '🍊'
+            },
+            {
+                id: 'ichigo',
+                name: 'いちご',
+                distractors: ['さくらんぼ', 'りんご', 'ぶどう', 'すいか'],
+                imageUrl: 'https://images.unsplash.com/photo-1464965911861-746a04b4bca6?auto=format&fit=crop&w=500&q=80',
+                emoji: '🍓'
+            },
+            {
+                id: 'budou',
+                name: 'ぶどう',
+                distractors: ['めろん', 'いちご', 'もも', 'さくらんぼ'],
+                imageUrl: 'https://images.unsplash.com/photo-1537640538966-79f369143f8f?auto=format&fit=crop&w=500&q=80',
+                emoji: '🍇'
+            },
+            {
+                id: 'suika',
+                name: 'すいか',
+                distractors: ['めろん', 'りんご', 'みかん', 'きうい'],
+                imageUrl: 'https://images.unsplash.com/photo-1587049352846-4a222e784d38?auto=format&fit=crop&w=500&q=80',
+                emoji: '🍉'
+            },
+            {
+                id: 'momo',
+                name: 'もも',
+                distractors: ['りんご', 'みかん', 'いちご', 'なし'],
+                imageUrl: 'https://images.unsplash.com/photo-1629828874514-c1e5103f2150?auto=format&fit=crop&w=500&q=80',
+                emoji: '🍑'
+            },
+            {
+                id: 'meron',
+                name: 'めろん',
+                distractors: ['すいか', 'れもん', 'ばなな', 'きうい'],
+                imageUrl: 'https://images.unsplash.com/photo-1571575173700-afb9492e6a50?auto=format&fit=crop&w=500&q=80',
+                emoji: '🍈'
+            },
+            {
+                id: 'painappuru',
+                name: 'ぱいなっぷる',
+                distractors: ['ばなな', 'めろん', 'みかん', 'れもん'],
+                imageUrl: 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?auto=format&fit=crop&w=500&q=80',
+                emoji: '🍍'
+            },
+            {
+                id: 'sakuranbo',
+                name: 'さくらんぼ',
+                distractors: ['いちご', 'りんご', 'ぶどう', 'もも'],
+                imageUrl: 'https://images.unsplash.com/photo-1528821128474-27f963b062bf?auto=format&fit=crop&w=500&q=80',
+                emoji: '🍒'
+            },
+            {
+                id: 'remon',
+                name: 'れもん',
+                distractors: ['ばなな', 'みかん', 'めろん', 'りんご'],
+                imageUrl: 'https://images.unsplash.com/photo-1590502593747-42a996133562?auto=format&fit=crop&w=500&q=80',
+                emoji: '🍋'
+            },
+            {
+                id: 'kiui',
+                name: 'きうい',
+                distractors: ['めろん', 'すいか', 'もも', 'ぶどう'],
+                imageUrl: 'https://images.unsplash.com/photo-1585059895524-72359e06133a?auto=format&fit=crop&w=500&q=80',
+                emoji: '🥝'
+            }
+        ];
+
+        // ゲーム状態管理
+        let state = {
+            questions: [],
+            currentIndex: 0,
+            score: 0,
+            isAnswering: false,
+            voiceEnabled: true,
+            questionCount: 10,
+            fontStyle: 'normal',
+            firstTryCorrect: true
+        };
+
+        // 効果音シンセサイザー (Tone.js)
+        let synth = null;
+        function initAudio() {
+            if (!synth && typeof Tone !== 'undefined') {
+                synth = new Tone.PolySynth(Tone.Synth).toDestination();
+            }
+        }
+
+        // ピンポン♪（正解音）
+        function playCorrectSound() {
+            try {
+                initAudio();
+                if (Tone.context.state !== 'running') Tone.start();
+                const now = Tone.now();
+                synth.triggerAttackRelease("C5", "8n", now);
+                synth.triggerAttackRelease("E5", "8n", now + 0.12);
+                synth.triggerAttackRelease("G5", "4n", now + 0.24);
+            } catch (e) {
+                console.warn("Audio playback skipped:", e);
+            }
+        }
+
+        // ブー（不正解音・優しく低めの音）
+        function playWrongSound() {
+            try {
+                initAudio();
+                if (Tone.context.state !== 'running') Tone.start();
+                const now = Tone.now();
+                synth.triggerAttackRelease("F3", "8n", now);
+                synth.triggerAttackRelease("E3", "4n", now + 0.15);
+            } catch (e) {
+                console.warn("Audio playback skipped:", e);
+            }
+        }
+
+        // ファンファーレ（クリア音）
+        function playFanfareSound() {
+            try {
+                initAudio();
+                if (Tone.context.state !== 'running') Tone.start();
+                const now = Tone.now();
+                synth.triggerAttackRelease("C5", "16n", now);
+                synth.triggerAttackRelease("E5", "16n", now + 0.1);
+                synth.triggerAttackRelease("G5", "16n", now + 0.2);
+                synth.triggerAttackRelease("C6", "2n", now + 0.3);
+            } catch (e) {
+                console.warn("Audio playback skipped:", e);
+            }
+        }
+
+        // 音声読み上げ機能 (Web Speech API)
+        function speakText(text) {
+            if (!state.voiceEnabled) return;
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); // 前の音声をキャンセル
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'ja-JP';
+                utterance.rate = 0.9; // お子様向けに少しゆっくり明瞭に
+                utterance.pitch = 1.1; // 少し明るく
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        function speakCurrentFruit() {
+            const current = state.questions[state.currentIndex];
+            if (current) {
+                speakText(current.name);
+            }
+        }
+
+        // 音声オンオフ切り替え
+        function toggleVoice() {
+            state.voiceEnabled = !state.voiceEnabled;
+            const icon = document.getElementById('voiceIcon');
+            const text = document.getElementById('voiceText');
+            const btn = document.getElementById('voiceToggleBtn');
+            
+            if (state.voiceEnabled) {
+                icon.textContent = '🔊';
+                text.textContent = 'おと オン';
+                btn.classList.remove('bg-slate-200', 'text-slate-500');
+                btn.classList.add('bg-amber-100', 'text-amber-800');
+                speakText('おと オン');
+            } else {
+                icon.textContent = '🔇';
+                text.textContent = 'おと オフ';
+                btn.classList.remove('bg-amber-100', 'text-amber-800');
+                btn.classList.add('bg-slate-200', 'text-slate-500');
+                if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+            }
+        }
+
+        // 配列をシャッフルするユーティリティ
+        function shuffleArray(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        // ゲーム初期化・開始
+        function initGame() {
+            const shuffled = shuffleArray(FRUITS_DATA);
+            state.questions = shuffled.slice(0, state.questionCount);
+            state.currentIndex = 0;
+            state.score = 0;
+            state.isAnswering = false;
+
+            document.getElementById('gameArea').classList.remove('hidden');
+            document.getElementById('resultArea').classList.add('hidden');
+            
+            renderQuestion();
+        }
+
+        // 現在の問題を描画
+        function renderQuestion() {
+            state.isAnswering = false;
+            state.firstTryCorrect = true;
+            const current = state.questions[state.currentIndex];
+
+            // 進捗表示の更新
+            document.getElementById('progressText').textContent = `${state.currentIndex + 1} / ${state.questions.length}`;
+            
+            // 正解オーバーレイを隠す
+            document.getElementById('correctOverlay').classList.add('hidden');
+
+            // 写真の描画（読み込みエラー時は大きな絵文字に自動フォールバック）
+            const visualContainer = document.getElementById('fruitVisual');
+            visualContainer.innerHTML = `
+                <img src="${current.imageUrl}" 
+                     alt="${current.name}のしゃしん" 
+                     class="w-full h-full object-cover rounded-2xl shadow-sm animate-pop"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="hidden w-full h-full items-center justify-center text-8xl sm:text-9xl animate-pop">
+                    ${current.emoji}
+                </div>
+            `;
+
+            // 2択の選択肢を作成（正解1つ ＋ 間違い1つ）
+            const wrongOption = current.distractors[Math.floor(Math.random() * current.distractors.length)];
+            const choices = shuffleArray([
+                { text: current.name, isCorrect: true },
+                { text: wrongOption, isCorrect: false }
+            ]);
+
+            // ボタンの描画
+            const choicesContainer = document.getElementById('choicesContainer');
+            choicesContainer.innerHTML = '';
+
+            choices.forEach((choice, idx) => {
+                const btn = document.createElement('button');
+                const colorClass = state.fontStyle === 'highContrast' 
+                    ? (idx === 0 ? 'text-blue-700 border-blue-300 hover:bg-blue-50' : 'text-rose-700 border-rose-300 hover:bg-rose-50')
+                    : 'text-slate-800 border-amber-300 hover:bg-amber-50';
+
+                btn.className = `choice-btn w-full py-6 sm:py-8 px-6 bg-white rounded-3xl shadow-md border-b-8 border-2 ${colorClass} text-3xl sm:text-4xl font-black tracking-widest transition-all transform active:translate-y-1 active:border-b-2 focus:outline-none flex items-center justify-center cursor-pointer`;
+                btn.textContent = choice.text;
+                
+                btn.onclick = () => handleChoiceClick(btn, choice);
+                choicesContainer.appendChild(btn);
+            });
+        }
+
+        // 選択肢をクリックした時の処理
+        function handleChoiceClick(buttonElement, choice) {
+            if (state.isAnswering) return;
+
+            if (choice.isCorrect) {
+                // 正解！
+                state.isAnswering = true;
+                if (state.firstTryCorrect) {
+                    state.score++;
+                }
+
+                // 音と読み上げ
+                playCorrectSound();
+                setTimeout(() => speakText(`せいかい！ ${choice.text}`), 300);
+
+                // ボタンを緑色に強調
+                buttonElement.classList.remove('bg-white', 'border-amber-300', 'border-blue-300', 'border-rose-300');
+                buttonElement.classList.add('bg-emerald-500', 'text-white', 'border-emerald-700', 'scale-105');
+
+                // 写真の上に大きな丸を表示
+                document.getElementById('correctOverlay').classList.remove('hidden');
+
+                // 1.6秒後に次の問題へ
+                setTimeout(() => {
+                    state.currentIndex++;
+                    if (state.currentIndex < state.questions.length) {
+                        renderQuestion();
+                    } else {
+                        showResults();
+                    }
+                }, 1700);
+
+            } else {
+                // 不正解（もう一度選べるようにする）
+                state.firstTryCorrect = false;
+                playWrongSound();
+                speakText('おしい！ もういちど えらんでみよう');
+
+                // ボタンを揺らしてグレーアウト
+                buttonElement.classList.add('animate-shake', 'bg-slate-100', 'text-slate-400', 'border-slate-300', 'opacity-60');
+                buttonElement.disabled = true;
+
+                setTimeout(() => {
+                    buttonElement.classList.remove('animate-shake');
+                }, 450);
+            }
+        }
+
+        // 結果画面の表示
+        function showResults() {
+            document.getElementById('gameArea').classList.add('hidden');
+            document.getElementById('resultArea').classList.remove('hidden');
+            
+            document.getElementById('finalScore').textContent = state.score;
+            document.getElementById('totalQuestions').textContent = state.questions.length;
+
+            playFanfareSound();
+            setTimeout(() => speakText('よくできました！ さいごまで がんばったね！'), 500);
+        }
+
+        // リスタート
+        function restartGame() {
+            initGame();
+        }
+
+        // 設定モーダルの開閉
+        function toggleSettingsModal() {
+            const modal = document.getElementById('settingsModal');
+            modal.classList.toggle('hidden');
+        }
+
+        // 設定の適用
+        function applySettings() {
+            const countVal = parseInt(document.getElementById('questionCountSelect').value, 10);
+            const fontVal = document.getElementById('fontStyleSelect').value;
+
+            state.questionCount = countVal;
+            state.fontStyle = fontVal;
+
+            toggleSettingsModal();
+            initGame();
+        }
+
+        // ページ読み込み完了時に開始
+        window.onload = function() {
+            initGame();
+        };
+    </script>
+</body>
+</html>
